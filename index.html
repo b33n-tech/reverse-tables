@@ -342,6 +342,55 @@
     font-size: 9px; padding: 1px 4px; border-radius: 2px;
     background: rgba(240,160,96,.15); color: var(--accent3); margin-left: 4px;
   }
+  /* FK / Lookup / Rollup cell styles */
+  .cell-fk {
+    width: 100%; min-width: 120px; padding: 6px 10px;
+    background: transparent; border: none; outline: none;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px;
+    cursor: pointer; transition: background .1s;
+  }
+  .cell-fk:focus { background: rgba(125,200,255,.06); }
+  .cell-fk option { background: var(--surface2); }
+  .cell-lookup {
+    width: 100%; min-width: 120px; padding: 8px 12px;
+    background: rgba(240,160,96,.05); border: none; outline: none;
+    color: var(--accent3); font-family: 'DM Mono', monospace; font-size: 12px;
+    cursor: default; font-style: italic;
+  }
+  .cell-rollup {
+    width: 100%; min-width: 80px; padding: 8px 12px;
+    background: rgba(208,96,240,.05); border: none; outline: none;
+    color: var(--accent4); font-family: 'DM Mono', monospace; font-size: 12px;
+    cursor: default; text-align: center; font-weight: 500;
+  }
+  td.td-lookup { background: rgba(240,160,96,.04) !important; }
+  td.td-rollup { background: rgba(208,96,240,.04) !important; }
+  .th-fk { color: var(--accent2) !important; }
+  .th-lookup { color: var(--accent3) !important; }
+  .th-rollup { color: var(--accent4) !important; }
+  /* Rollup config in link modal */
+  .rollup-config { margin-top: 8px; padding: 12px; background: var(--bg); border-radius: var(--r2); border: 1px solid var(--border); display: none; }
+  .rollup-config.visible { display: block; }
+  .rollup-config .rc-label { font-size: 10px; color: var(--text3); margin-bottom: 6px; }
+  .rollup-ops { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rollup-op-btn {
+    padding: 4px 10px; border-radius: 3px; font-size: 11px;
+    border: 1px solid var(--border2); background: var(--surface2);
+    color: var(--text2); cursor: pointer; font-family: 'DM Mono', monospace;
+    transition: all .1s;
+  }
+  .rollup-op-btn.selected { background: rgba(208,96,240,.2); border-color: var(--accent4); color: var(--accent4); }
+  /* lookup source prop row */
+  .lookup-config { margin-top: 8px; padding: 12px; background: var(--bg); border-radius: var(--r2); border: 1px solid var(--border); display: none; }
+  .lookup-config.visible { display: block; }
+  .lookup-config .lc-label { font-size: 10px; color: var(--text3); margin-bottom: 6px; }
+  /* FK chip badge in table header */
+  .th-type-chip {
+    display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 2px; margin-left: 4px;
+  }
+  .th-type-chip.fk { background: rgba(125,200,255,.15); color: var(--accent2); }
+  .th-type-chip.lookup { background: rgba(240,160,96,.15); color: var(--accent3); }
+  .th-type-chip.rollup { background: rgba(208,96,240,.15); color: var(--accent4); }
 </style>
 </head>
 <body>
@@ -436,24 +485,67 @@
     <h2>Lier une propriété</h2>
     <p>Définis la liaison entre cette propriété et une colonne d'une autre entité.</p>
     <div class="link-row">
+      <label>Type</label>
+      <select id="linkType" onchange="onLinkTypeChange()">
+        <option value="ref">FK — Référence</option>
+        <option value="lookup">Lookup — Afficher valeur</option>
+        <option value="rollup">Rollup — Calcul agrégé</option>
+      </select>
+    </div>
+    <div class="link-row">
       <label>Entité cible</label>
       <select id="linkTargetEntity" onchange="refreshLinkTargetProps()"></select>
     </div>
-    <div class="link-row">
-      <label>Propriété</label>
+    <div class="link-row" id="linkPropRow">
+      <label>Propriété FK</label>
       <select id="linkTargetProp"></select>
     </div>
-    <div class="link-row">
-      <label>Type</label>
-      <select id="linkType">
-        <option value="ref">Référence (FK)</option>
-        <option value="lookup">Lookup</option>
-        <option value="rollup">Rollup</option>
-      </select>
+
+    <!-- Lookup: quelle propriété afficher -->
+    <div class="lookup-config" id="lookupConfig">
+      <div class="lc-label">PROPRIÉTÉ À AFFICHER (depuis l'entité liée)</div>
+      <div class="link-row" style="margin:0">
+        <label>Propriété</label>
+        <select id="lookupDisplayProp"></select>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--text3)">
+        La colonne FK source doit être dans la même entité — sélectionne-la :
+      </div>
+      <div class="link-row" style="margin-top:6px">
+        <label>Via FK</label>
+        <select id="lookupViaFK"></select>
+      </div>
     </div>
-    <div class="modal-actions">
+
+    <!-- Rollup: opération -->
+    <div class="rollup-config" id="rollupConfig">
+      <div class="rc-label">OPÉRATION</div>
+      <div class="rollup-ops">
+        <button class="rollup-op-btn selected" data-op="COUNT" onclick="selectRollupOp(this)">COUNT</button>
+        <button class="rollup-op-btn" data-op="SUM" onclick="selectRollupOp(this)">SUM</button>
+        <button class="rollup-op-btn" data-op="AVG" onclick="selectRollupOp(this)">AVG</button>
+        <button class="rollup-op-btn" data-op="MIN" onclick="selectRollupOp(this)">MIN</button>
+        <button class="rollup-op-btn" data-op="MAX" onclick="selectRollupOp(this)">MAX</button>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--text3)">
+        Propriété à agréger (ignoré pour COUNT) :
+      </div>
+      <div class="link-row" style="margin-top:6px;margin-bottom:0">
+        <label>Champ</label>
+        <select id="rollupField"></select>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--text3)">
+        La table liée doit avoir une FK pointant vers <em>cette</em> entité — sélectionne-la :
+      </div>
+      <div class="link-row" style="margin-top:6px;margin-bottom:0">
+        <label>Via FK</label>
+        <select id="rollupViaFK"></select>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:16px">
       <button class="btn" onclick="closeLinkModal()">Annuler</button>
-      <button class="btn" id="removeLinkBtn" onclick="removeLink()" style="color:var(--danger);display:none">Supprimer liaison</button>
+      <button class="btn" id="removeLinkBtn" onclick="removeLink()" style="color:var(--danger);display:none">Supprimer</button>
       <button class="btn primary" onclick="saveLink()">Lier</button>
     </div>
   </div>
@@ -463,27 +555,18 @@
 <script>
 // ── STATE ──
 const COLORS = ['#c8f060','#7dc8ff','#f0a060','#d060f0','#60f0c8','#f06080','#f0e060','#60a0f0'];
-let entities = []; // { id, name, color, count, props: [{id,name,type,link?:{entityId,propId,linkType}}], rows: [[...]] }
+let entities = [];
 let selectedColor = COLORS[0];
 let currentDataEntity = null;
-let linkingContext = null; // {entityId, propId}
+let linkingContext = null;
 let dragState = null;
 let cardPositions = {};
-let selectedFormat = ['csv'];
 
 // ── INIT ──
-function init() {
-  renderColorRow();
-  renderAll();
-}
-
+function init() { renderColorRow(); renderAll(); }
 function renderColorRow() {
   const el = document.getElementById('colorRow');
-  el.innerHTML = COLORS.map(c => `
-    <div class="color-dot ${c===selectedColor?'selected':''}"
-      style="background:${c}"
-      onclick="selectColor('${c}')"></div>
-  `).join('');
+  el.innerHTML = COLORS.map(c => `<div class="color-dot ${c===selectedColor?'selected':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`).join('');
 }
 function selectColor(c) { selectedColor = c; renderColorRow(); }
 
@@ -494,16 +577,11 @@ function addEntity() {
   const name = document.getElementById('newEntityName').value.trim() || 'Entité';
   const count = parseInt(document.getElementById('newEntityCount').value) || 50;
   const id = uid();
-  const entity = {
-    id, name, color: selectedColor, count,
-    props: [
-      {id: uid(), name: 'Nom', type: 'text'},
-      {id: uid(), name: 'Description', type: 'text'},
-    ],
+  const entity = { id, name, color: selectedColor, count,
+    props: [{id:uid(),name:'Nom',type:'text'},{id:uid(),name:'Description',type:'text'}],
     rows: Array.from({length: count}, () => [])
   };
   entities.push(entity);
-  // position
   const existing = Object.keys(cardPositions).length;
   cardPositions[id] = { x: 40 + (existing % 3) * 290, y: 40 + Math.floor(existing / 3) * 260 };
   document.getElementById('newEntityName').value = '';
@@ -515,7 +593,6 @@ function addEntity() {
 function deleteEntity(id) {
   entities = entities.filter(e => e.id !== id);
   delete cardPositions[id];
-  // clean links pointing to this entity
   entities.forEach(e => e.props.forEach(p => { if(p.link?.entityId===id) delete p.link; }));
   if(currentDataEntity===id) currentDataEntity=null;
   renderAll();
@@ -526,25 +603,12 @@ function updateEntityName(id, val) {
   if(e) { e.name = val; renderEntityList(); renderDataSidebar(); }
 }
 
-function updateEntityCount(id) {
-  const e = entities.find(e=>e.id===id);
-  if(!e) return;
-  const input = document.getElementById('count-'+id);
-  const n = parseInt(input?.value) || 50;
-  e.count = n;
-  while(e.rows.length < n) e.rows.push([]);
-  e.rows = e.rows.slice(0, n);
-  if(currentDataEntity===id) renderDataTable(id);
-  renderEntityList();
-  renderDataSidebar();
-  showToast(`${e.name} : ${n} lignes`);
-}
-
 // ── PROPS ──
 function addProp(entityId) {
   const e = entities.find(e=>e.id===entityId);
   if(!e) return;
-  e.props.push({id: uid(), name: 'Propriété', type: 'text'});
+  e.props.push({id:uid(),name:'Propriété',type:'text'});
+  e.rows.forEach(r => r.push(''));
   renderCard(entityId);
   if(currentDataEntity===entityId) renderDataTable(entityId);
 }
@@ -553,7 +617,7 @@ function deleteProp(entityId, propId) {
   const e = entities.find(e=>e.id===entityId);
   if(!e) return;
   const pi = e.props.findIndex(p=>p.id===propId);
-  if(pi === -1) return;
+  if(pi===-1) return;
   e.props.splice(pi,1);
   e.rows.forEach(r => r.splice(pi,1));
   renderCard(entityId);
@@ -563,7 +627,7 @@ function deleteProp(entityId, propId) {
 function updatePropName(entityId, propId, val) {
   const e = entities.find(e=>e.id===entityId);
   const p = e?.props.find(p=>p.id===propId);
-  if(p) { p.name = val; if(currentDataEntity===entityId) refreshTableHeaders(entityId); }
+  if(p) { p.name = val; if(currentDataEntity===entityId) renderDataTable(entityId); }
 }
 
 function updatePropType(entityId, propId, val) {
@@ -573,30 +637,28 @@ function updatePropType(entityId, propId, val) {
 }
 
 // ── RENDER ALL ──
-function renderAll() {
-  renderCards();
-  renderConnections();
-  renderEntityList();
-  renderDataSidebar();
-  if(currentDataEntity) renderDataTable(currentDataEntity);
-}
+function renderAll() { renderCards(); renderConnections(); renderEntityList(); renderDataSidebar(); if(currentDataEntity) renderDataTable(currentDataEntity); }
 
 // ── CARDS ──
 function renderCards() {
   const inner = document.getElementById('canvasInner');
-  // remove old cards
   inner.querySelectorAll('.entity-card').forEach(el=>el.remove());
   entities.forEach(e => {
     const pos = cardPositions[e.id] || {x:40,y:40};
     const card = document.createElement('div');
-    card.className = 'entity-card';
-    card.id = 'card-'+e.id;
-    card.style.left = pos.x+'px';
-    card.style.top = pos.y+'px';
+    card.className = 'entity-card'; card.id = 'card-'+e.id;
+    card.style.left = pos.x+'px'; card.style.top = pos.y+'px';
     card.innerHTML = buildCardHTML(e);
     inner.appendChild(card);
     setupDrag(card, e.id);
   });
+}
+
+function linkTypeLabel(lt) {
+  if(lt==='ref') return '<span style="font-size:9px;padding:1px 4px;border-radius:2px;background:rgba(125,200,255,.15);color:var(--accent2)">FK</span>';
+  if(lt==='lookup') return '<span style="font-size:9px;padding:1px 4px;border-radius:2px;background:rgba(240,160,96,.15);color:var(--accent3)">LOOKUP</span>';
+  if(lt==='rollup') return '<span style="font-size:9px;padding:1px 4px;border-radius:2px;background:rgba(208,96,240,.15);color:var(--accent4)">ROLLUP</span>';
+  return '';
 }
 
 function buildCardHTML(e) {
@@ -604,8 +666,8 @@ function buildCardHTML(e) {
   <div class="card-header" data-eid="${e.id}">
     <div class="entity-dot" style="background:${e.color}"></div>
     <input class="card-title" value="${esc(e.name)}" onchange="updateEntityName('${e.id}',this.value)" onclick="this.select()">
-    <div class="card-count-badge" onclick="promptCount('${e.id}')" title="Cliquer pour modifier le nombre de lignes">${e.count}</div>
-    <div class="card-del" onclick="deleteEntity('${e.id}')" title="Supprimer">✕</div>
+    <div class="card-count-badge" onclick="promptCount('${e.id}')">${e.count}</div>
+    <div class="card-del" onclick="deleteEntity('${e.id}')">✕</div>
   </div>
   <div class="card-props" id="props-${e.id}">
     ${e.props.map(p => buildPropHTML(e.id, p)).join('')}
@@ -617,16 +679,15 @@ function buildCardHTML(e) {
 
 function buildPropHTML(eid, p) {
   const linked = p.link ? entities.find(e=>e.id===p.link.entityId) : null;
-  const linkedProp = linked ? linked.props.find(pr=>pr.id===p.link.propId) : null;
-  const linkTag = linked ? `<span class="prop-link-tag">→ ${linked.name}</span>` : '';
+  const linkBadge = linked ? `${linkTypeLabel(p.link.linkType)} <span class="prop-link-tag">→ ${linked.name}</span>` : '';
   return `
   <div class="prop-row" id="prow-${p.id}">
     <input class="prop-name" value="${esc(p.name)}" onchange="updatePropName('${eid}','${p.id}',this.value)" onclick="this.select()">
     <select class="prop-type" onchange="updatePropType('${eid}','${p.id}',this.value)">
       ${['text','number','date','boolean','email','url','select'].map(t=>`<option value="${t}" ${p.type===t?'selected':''}>${t}</option>`).join('')}
     </select>
-    ${linkTag}
-    <span class="prop-link-btn ${p.link?'linked':''}" onclick="openLinkModal('${eid}','${p.id}')" title="Lier à une autre entité">⇌</span>
+    ${linkBadge}
+    <span class="prop-link-btn ${p.link?'linked':''}" onclick="openLinkModal('${eid}','${p.id}')" title="Lier">⇌</span>
     <span class="prop-del" onclick="deleteProp('${eid}','${p.id}')">✕</span>
   </div>`;
 }
@@ -634,7 +695,7 @@ function buildPropHTML(eid, p) {
 function renderCard(entityId) {
   const e = entities.find(e=>e.id===entityId);
   const card = document.getElementById('card-'+entityId);
-  if(!e || !card) return;
+  if(!e||!card) return;
   card.innerHTML = buildCardHTML(e);
   setupDrag(card, entityId);
   renderConnections();
@@ -643,16 +704,14 @@ function renderCard(entityId) {
 function promptCount(id) {
   const e = entities.find(e=>e.id===id);
   if(!e) return;
-  const n = prompt(`Nombre de lignes pour « ${e.name } » :`, e.count);
+  const n = prompt(`Nombre de lignes pour « ${e.name} » :`, e.count);
   if(n===null) return;
   const num = parseInt(n);
   if(!isNaN(num) && num>0) {
     e.count = num;
     while(e.rows.length<num) e.rows.push([]);
     e.rows = e.rows.slice(0,num);
-    renderCard(id);
-    renderEntityList();
-    renderDataSidebar();
+    renderCard(id); renderEntityList(); renderDataSidebar();
     if(currentDataEntity===id) renderDataTable(id);
     showToast(`${e.name} : ${num} lignes`);
   }
@@ -665,20 +724,18 @@ function setupDrag(card, id) {
     if(e.target.tagName==='INPUT'||e.target.classList.contains('card-del')) return;
     e.preventDefault();
     const pos = cardPositions[id];
-    dragState = { id, startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+    dragState = {id, startX:e.clientX, startY:e.clientY, origX:pos.x, origY:pos.y};
     document.addEventListener('mousemove', onDragMove);
     document.addEventListener('mouseup', onDragEnd);
   });
 }
 function onDragMove(e) {
   if(!dragState) return;
-  const dx = e.clientX - dragState.startX;
-  const dy = e.clientY - dragState.startY;
-  const newX = Math.max(0, dragState.origX + dx);
-  const newY = Math.max(0, dragState.origY + dy);
-  cardPositions[dragState.id] = {x: newX, y: newY};
+  const newX = Math.max(0, dragState.origX + e.clientX - dragState.startX);
+  const newY = Math.max(0, dragState.origY + e.clientY - dragState.startY);
+  cardPositions[dragState.id] = {x:newX, y:newY};
   const card = document.getElementById('card-'+dragState.id);
-  if(card) { card.style.left = newX+'px'; card.style.top = newY+'px'; }
+  if(card) { card.style.left=newX+'px'; card.style.top=newY+'px'; }
   renderConnections();
 }
 function onDragEnd() {
@@ -691,89 +748,144 @@ function onDragEnd() {
 function renderConnections() {
   const svg = document.getElementById('connections-svg');
   const links = [];
-  entities.forEach(e => {
-    e.props.forEach(p => {
-      if(!p.link) return;
-      const target = entities.find(t=>t.id===p.link.entityId);
-      if(!target) return;
-      links.push({ src: e, target, prop: p });
-    });
-  });
-
+  entities.forEach(e => e.props.forEach(p => {
+    if(!p.link) return;
+    const target = entities.find(t=>t.id===p.link.entityId);
+    if(target) links.push({src:e, target, prop:p});
+  }));
+  const typeColor = lt => lt==='lookup'?'var(--accent3)':lt==='rollup'?'var(--accent4)':'var(--accent2)';
   svg.innerHTML = links.map(l => {
-    const sp = cardPositions[l.src.id];
-    const tp = cardPositions[l.target.id];
+    const sp = cardPositions[l.src.id], tp = cardPositions[l.target.id];
     if(!sp||!tp) return '';
-    const x1 = sp.x + 260, y1 = sp.y + 50;
-    const x2 = tp.x, y2 = tp.y + 50;
-    const cx1 = x1 + 60, cx2 = x2 - 60;
-    return `<path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}"
-      stroke="${l.src.color}" stroke-width="1.5" fill="none" opacity="0.5"
-      stroke-dasharray="5,4"/>
-    <circle cx="${x1}" cy="${y1}" r="4" fill="${l.src.color}" opacity="0.7"/>
-    <circle cx="${x2}" cy="${y2}" r="4" fill="${l.target.color}" opacity="0.7"/>`;
+    const x1=sp.x+260, y1=sp.y+50, x2=tp.x, y2=tp.y+50;
+    const col = typeColor(l.prop.link.linkType);
+    return `<path d="M${x1},${y1} C${x1+60},${y1} ${x2-60},${y2} ${x2},${y2}"
+      stroke="${col}" stroke-width="1.5" fill="none" opacity="0.45" stroke-dasharray="5,4"/>
+    <circle cx="${x1}" cy="${y1}" r="4" fill="${col}" opacity="0.7"/>
+    <circle cx="${x2}" cy="${y2}" r="4" fill="${col}" opacity="0.7"/>`;
   }).join('');
 }
 
 // ── ENTITY PANEL LIST ──
 function renderEntityList() {
   const el = document.getElementById('entityList');
-  if(!entities.length) { el.innerHTML = `<div style="padding:12px 16px;font-size:11px;color:var(--text3)">Aucune entité encore</div>`; return; }
-  el.innerHTML = entities.map(e => `
+  if(!entities.length) { el.innerHTML=`<div style="padding:12px 16px;font-size:11px;color:var(--text3)">Aucune entité encore</div>`; return; }
+  el.innerHTML = entities.map(e=>`
     <div class="entity-list-item" onclick="focusCard('${e.id}')">
       <div class="eli-dot" style="background:${e.color}"></div>
       <div class="eli-name">${esc(e.name)}</div>
       <div class="eli-count">${e.count}</div>
     </div>`).join('');
 }
-
 function focusCard(id) {
-  const card = document.getElementById('card-'+id);
+  const card=document.getElementById('card-'+id);
   if(!card) return;
   card.classList.add('selected');
-  setTimeout(()=>card.classList.remove('selected'), 1200);
-  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+  setTimeout(()=>card.classList.remove('selected'),1200);
 }
 
 // ── DATA SPACE ──
 function renderDataSidebar() {
   const el = document.getElementById('dataEntityList');
-  if(!entities.length) { el.innerHTML = ''; return; }
+  if(!entities.length) { el.innerHTML=''; return; }
   el.innerHTML = entities.map(e => {
-    const filled = e.rows.filter(r=>r.some(v=>v&&v.trim())).length;
+    const filled = e.rows.filter(r=>r.some(v=>v&&String(v).trim())).length;
     return `
     <div class="data-entity-item ${currentDataEntity===e.id?'active':''}" onclick="selectDataEntity('${e.id}')">
       <div class="dei-dot" style="background:${e.color}"></div>
       <div class="dei-info">
         <div class="dei-name">${esc(e.name)}</div>
-        <div class="dei-sub">${e.count} lignes · ${e.props.length} colonnes</div>
+        <div class="dei-sub">${e.count} lignes · ${e.props.length} col.</div>
       </div>
       ${filled?`<div class="dei-filled">${filled}</div>`:''}
     </div>`;
   }).join('');
 }
 
-function selectDataEntity(id) {
-  currentDataEntity = id;
-  renderDataSidebar();
-  renderDataTable(id);
+function selectDataEntity(id) { currentDataEntity=id; renderDataSidebar(); renderDataTable(id); }
+
+// ── COMPUTED CELL VALUES ──
+
+// FK: returns array of {label, value} options from target entity (first prop = label, all rows)
+function getFKOptions(targetEntityId) {
+  const t = entities.find(e=>e.id===targetEntityId);
+  if(!t) return [];
+  return t.rows.map((r,i) => ({value: String(i), label: r[0]||`#${i+1}`}));
 }
 
+// LOOKUP: given current row, find FK prop in same entity, resolve to target row, return display prop value
+function computeLookup(entity, rowIndex, prop) {
+  // prop.link: {entityId, propId (=prop in target to display), linkType:'lookup', viaFKPropId, lookupDisplayPropId}
+  const lk = prop.link;
+  if(!lk) return '';
+  const targetEntity = entities.find(e=>e.id===lk.entityId);
+  if(!targetEntity) return '';
+
+  // find the FK prop in the same entity
+  const fkProp = entity.props.find(p=>p.id===lk.viaFKPropId);
+  if(!fkProp) return '';
+  const fkPropIdx = entity.props.indexOf(fkProp);
+  const fkVal = entity.rows[rowIndex]?.[fkPropIdx]; // stored as target row index string
+  if(fkVal===undefined||fkVal==='') return '';
+
+  const targetRowIdx = parseInt(fkVal);
+  if(isNaN(targetRowIdx)) return '';
+  const targetRow = targetEntity.rows[targetRowIdx];
+  if(!targetRow) return '';
+
+  // which prop to display
+  const displayPropIdx = targetEntity.props.findIndex(p=>p.id===lk.lookupDisplayPropId);
+  if(displayPropIdx===-1) return targetRow[0]||'';
+  return targetRow[displayPropIdx]||'';
+}
+
+// ROLLUP: count/sum/avg/min/max rows in target entity whose FK col points to current row index
+function computeRollup(entity, rowIndex, prop) {
+  const lk = prop.link;
+  if(!lk) return '';
+  const targetEntity = entities.find(e=>e.id===lk.entityId);
+  if(!targetEntity) return '';
+
+  // find FK prop in *target* entity that points back to this entity
+  const fkProp = targetEntity.props.find(p=>p.id===lk.rollupViaFKPropId);
+  if(!fkProp) return '';
+  const fkIdx = targetEntity.props.indexOf(fkProp);
+
+  // collect matching rows
+  const matchingRows = targetEntity.rows.filter(r => parseInt(r[fkIdx])===rowIndex);
+  const op = lk.rollupOp || 'COUNT';
+
+  if(op==='COUNT') return matchingRows.length;
+
+  // for numeric ops find the field
+  const fieldProp = targetEntity.props.find(p=>p.id===lk.rollupFieldPropId);
+  const fieldIdx = fieldProp ? targetEntity.props.indexOf(fieldProp) : 0;
+  const nums = matchingRows.map(r=>parseFloat(r[fieldIdx])).filter(n=>!isNaN(n));
+  if(!nums.length) return op==='COUNT'?0:'—';
+  if(op==='SUM') return nums.reduce((a,b)=>a+b,0);
+  if(op==='AVG') return (nums.reduce((a,b)=>a+b,0)/nums.length).toFixed(2);
+  if(op==='MIN') return Math.min(...nums);
+  if(op==='MAX') return Math.max(...nums);
+  return '';
+}
+
+// ── RENDER DATA TABLE ──
 function renderDataTable(id) {
   const e = entities.find(e=>e.id===id);
   const main = document.getElementById('dataMain');
-  if(!e) { main.innerHTML = `<div class="empty-data" id="emptyData"><div class="big">Introuvable</div></div>`; return; }
+  if(!e) { main.innerHTML=`<div class="empty-data"><div class="big">Introuvable</div></div>`; return; }
 
-  // Ensure rows are sized
-  while(e.rows.length < e.count) e.rows.push([]);
-  e.rows = e.rows.slice(0, e.count);
-  e.rows.forEach((r,i) => { while(r.length < e.props.length) r.push(''); });
+  while(e.rows.length<e.count) e.rows.push([]);
+  e.rows = e.rows.slice(0,e.count);
+  e.rows.forEach(r => { while(r.length<e.props.length) r.push(''); });
 
-  const linkBadge = (p) => {
-    if(!p.link) return '';
-    const t = entities.find(t=>t.id===p.link.entityId);
-    return t ? `<span class="th-link-badge">→${t.name}</span>` : '';
-  };
+  const thClass = p => !p.link?'':p.link.linkType==='ref'?'th-fk':p.link.linkType==='lookup'?'th-lookup':'th-rollup';
+  const thChip = p => !p.link?'':
+    p.link.linkType==='ref'?`<span class="th-type-chip fk">FK</span>`:
+    p.link.linkType==='lookup'?`<span class="th-type-chip lookup">LOOKUP</span>`:
+    `<span class="th-type-chip rollup">${p.link.rollupOp||'ROLLUP'}</span>`;
+
+  const tgtName = p => p.link ? (entities.find(t=>t.id===p.link.entityId)?.name||'') : '';
 
   main.innerHTML = `
   <div class="data-toolbar">
@@ -787,34 +899,66 @@ function renderDataTable(id) {
   </div>
   <div class="table-wrap">
     <table id="table-${id}">
-      <thead>
-        <tr>
-          <th>#</th>
-          ${e.props.map(p=>`<th>${esc(p.name)}${linkBadge(p)}</th>`).join('')}
-        </tr>
-      </thead>
+      <thead><tr>
+        <th>#</th>
+        ${e.props.map(p=>`<th class="${thClass(p)}">${esc(p.name)}${thChip(p)}${tgtName(p)?`<span style="font-size:9px;color:var(--text3);margin-left:4px">→${esc(tgtName(p))}</span>`:''}</th>`).join('')}
+      </tr></thead>
       <tbody>
         ${e.rows.map((r,ri)=>`
         <tr>
           <td>${ri+1}</td>
-          ${e.props.map((p,pi)=>`
-          <td><input class="cell-input" value="${esc(r[pi]||'')}"
-            onchange="setCellValue('${id}',${ri},${pi},this.value)"
-            type="${p.type==='number'?'number':p.type==='date'?'date':'text'}"
-            placeholder="${p.type==='boolean'?'oui/non':''}"></td>`).join('')}
+          ${e.props.map((p,pi)=>buildDataCell(e,r,ri,p,pi)).join('')}
         </tr>`).join('')}
       </tbody>
     </table>
   </div>`;
 }
 
-function refreshTableHeaders(id) {
-  const e = entities.find(e=>e.id===id);
-  const tbl = document.getElementById('table-'+id);
-  if(!e||!tbl) return;
-  const ths = tbl.querySelectorAll('thead th');
-  e.props.forEach((p,i) => {
-    if(ths[i+1]) ths[i+1].textContent = p.name;
+function buildDataCell(entity, row, rowIdx, prop, propIdx) {
+  const lk = prop.link;
+
+  // ROLLUP: fully computed, read-only
+  if(lk?.linkType==='rollup') {
+    const val = computeRollup(entity, rowIdx, prop);
+    return `<td class="td-rollup"><div class="cell-rollup">${val}</div></td>`;
+  }
+
+  // LOOKUP: fully computed, read-only
+  if(lk?.linkType==='lookup') {
+    const val = computeLookup(entity, rowIdx, prop);
+    return `<td class="td-lookup"><div class="cell-lookup">${esc(String(val))}</div></td>`;
+  }
+
+  // FK: dropdown of target entity rows
+  if(lk?.linkType==='ref') {
+    const opts = getFKOptions(lk.entityId);
+    const curVal = row[propIdx]||'';
+    return `<td><select class="cell-fk" onchange="setCellValue('${entity.id}',${rowIdx},${propIdx},this.value);refreshLookupCells('${entity.id}')">
+      <option value="">— aucun —</option>
+      ${opts.map(o=>`<option value="${o.value}" ${curVal===o.value?'selected':''}>${esc(o.label)}</option>`).join('')}
+    </select></td>`;
+  }
+
+  // Regular editable cell
+  const val = row[propIdx]||'';
+  const inputType = prop.type==='number'?'number':prop.type==='date'?'date':'text';
+  return `<td><input class="cell-input" value="${esc(val)}"
+    onchange="setCellValue('${entity.id}',${rowIdx},${propIdx},this.value)"
+    type="${inputType}"></td>`;
+}
+
+// Refresh lookup/rollup cells without full re-render (after FK change)
+function refreshLookupCells(entityId) {
+  const e = entities.find(e=>e.id===entityId);
+  if(!e) return;
+  renderDataSidebar();
+  // Full re-render to keep computed values in sync
+  renderDataTable(entityId);
+  // Also re-render any entity that has lookups/rollups pointing to this entity
+  entities.forEach(other => {
+    if(other.id===entityId) return;
+    const hasDep = other.props.some(p=>p.link?.entityId===entityId && (p.link.linkType==='lookup'||p.link.linkType==='rollup'));
+    if(hasDep && currentDataEntity===other.id) renderDataTable(other.id);
   });
 }
 
@@ -827,48 +971,93 @@ function setCellValue(entityId, ri, pi, val) {
 function addRowTo(id) {
   const e = entities.find(e=>e.id===id);
   if(!e) return;
-  e.count++;
-  e.rows.push(Array(e.props.length).fill(''));
-  renderDataTable(id);
-  renderDataSidebar();
-  renderEntityList();
-  renderCard(id);
+  e.count++; e.rows.push(Array(e.props.length).fill(''));
+  renderDataTable(id); renderDataSidebar(); renderEntityList(); renderCard(id);
 }
 
 // ── LINK MODAL ──
+function onLinkTypeChange() {
+  const lt = document.getElementById('linkType').value;
+  document.getElementById('lookupConfig').classList.toggle('visible', lt==='lookup');
+  document.getElementById('rollupConfig').classList.toggle('visible', lt==='rollup');
+  document.getElementById('linkPropRow').style.display = lt==='rollup' ? 'none' : 'flex';
+  refreshLinkTargetProps();
+}
+
+function selectRollupOp(btn) {
+  document.querySelectorAll('.rollup-op-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
 function openLinkModal(eid, pid) {
   const e = entities.find(e=>e.id===eid);
   const p = e?.props.find(p=>p.id===pid);
   if(!e||!p) return;
-  linkingContext = {entityId: eid, propId: pid};
+  linkingContext = {entityId:eid, propId:pid};
 
   const otherEntities = entities.filter(en=>en.id!==eid);
   if(!otherEntities.length) { showToast('Crée au moins 2 entités pour lier'); return; }
 
+  // Fill entity dropdown
   const sel = document.getElementById('linkTargetEntity');
   sel.innerHTML = otherEntities.map(en=>`<option value="${en.id}" ${p.link?.entityId===en.id?'selected':''}>${esc(en.name)}</option>`).join('');
-  refreshLinkTargetProps();
 
-  // pre-fill
-  if(p.link) {
-    document.getElementById('linkType').value = p.link.linkType||'ref';
-    document.getElementById('removeLinkBtn').style.display = 'inline-block';
-  } else {
-    document.getElementById('removeLinkBtn').style.display = 'none';
+  // Pre-fill type
+  const lt = p.link?.linkType||'ref';
+  document.getElementById('linkType').value = lt;
+
+  refreshLinkTargetProps();
+  onLinkTypeChange();
+
+  // Pre-fill rollup op
+  if(p.link?.rollupOp) {
+    document.querySelectorAll('.rollup-op-btn').forEach(b=>{
+      b.classList.toggle('selected', b.dataset.op===p.link.rollupOp);
+    });
   }
 
+  document.getElementById('removeLinkBtn').style.display = p.link ? 'inline-block' : 'none';
   document.getElementById('linkModal').style.display = 'flex';
 }
 
 function refreshLinkTargetProps() {
   const eid = document.getElementById('linkTargetEntity').value;
   const target = entities.find(e=>e.id===eid);
-  const sel = document.getElementById('linkTargetProp');
-  if(!target) { sel.innerHTML = ''; return; }
+  const lt = document.getElementById('linkType').value;
   const ctx = linkingContext;
-  const e = entities.find(e=>e.id===ctx?.entityId);
-  const p = e?.props.find(p=>p.id===ctx?.propId);
-  sel.innerHTML = target.props.map(pr=>`<option value="${pr.id}" ${p?.link?.propId===pr.id?'selected':''}>${esc(pr.name)}</option>`).join('');
+  const srcEntity = entities.find(e=>e.id===ctx?.entityId);
+  const srcProp = srcEntity?.props.find(p=>p.id===ctx?.propId);
+
+  // Main prop dropdown (for FK & Lookup target prop)
+  const sel = document.getElementById('linkTargetProp');
+  if(target) {
+    sel.innerHTML = target.props.map(pr=>`<option value="${pr.id}" ${srcProp?.link?.propId===pr.id?'selected':''}>${esc(pr.name)}</option>`).join('');
+  } else sel.innerHTML = '';
+
+  // Lookup: display prop + via FK dropdown
+  if(lt==='lookup' && target && srcEntity) {
+    const displaySel = document.getElementById('lookupDisplayProp');
+    displaySel.innerHTML = target.props.map(pr=>`<option value="${pr.id}" ${srcProp?.link?.lookupDisplayPropId===pr.id?'selected':''}>${esc(pr.name)}</option>`).join('');
+
+    // FK props in THIS entity that point to target entity
+    const fkProps = srcEntity.props.filter(p=>p.link?.entityId===eid && p.link.linkType==='ref' && p.id!==ctx.propId);
+    const viaFK = document.getElementById('lookupViaFK');
+    viaFK.innerHTML = fkProps.length
+      ? fkProps.map(p=>`<option value="${p.id}" ${srcProp?.link?.viaFKPropId===p.id?'selected':''}>${esc(p.name)}</option>`).join('')
+      : `<option value="">— aucune FK vers ${esc(target.name)} —</option>`;
+  }
+
+  // Rollup: via FK in target entity pointing to src entity, + field in target
+  if(lt==='rollup' && target && srcEntity) {
+    const fkPropsInTarget = target.props.filter(p=>p.link?.entityId===srcEntity.id && p.link.linkType==='ref');
+    const viaFK = document.getElementById('rollupViaFK');
+    viaFK.innerHTML = fkPropsInTarget.length
+      ? fkPropsInTarget.map(p=>`<option value="${p.id}" ${srcProp?.link?.rollupViaFKPropId===p.id?'selected':''}>${esc(p.name)}</option>`).join('')
+      : `<option value="">— aucune FK vers ${esc(srcEntity.name)} —</option>`;
+
+    const rollupField = document.getElementById('rollupField');
+    rollupField.innerHTML = target.props.map(pr=>`<option value="${pr.id}" ${srcProp?.link?.rollupFieldPropId===pr.id?'selected':''}>${esc(pr.name)}</option>`).join('');
+  }
 }
 
 function saveLink() {
@@ -877,10 +1066,26 @@ function saveLink() {
   const e = entities.find(e=>e.id===entityId);
   const p = e?.props.find(p=>p.id===propId);
   if(!p) return;
+
   const targetEntityId = document.getElementById('linkTargetEntity').value;
-  const targetPropId = document.getElementById('linkTargetProp').value;
   const linkType = document.getElementById('linkType').value;
-  p.link = {entityId: targetEntityId, propId: targetPropId, linkType};
+  const targetPropId = document.getElementById('linkTargetProp').value;
+
+  if(linkType==='ref') {
+    p.link = {entityId:targetEntityId, propId:targetPropId, linkType:'ref'};
+  } else if(linkType==='lookup') {
+    const lookupDisplayPropId = document.getElementById('lookupDisplayProp').value;
+    const viaFKPropId = document.getElementById('lookupViaFK').value;
+    if(!viaFKPropId) { showToast('⚠ Ajoute d\'abord une FK vers cette entité'); return; }
+    p.link = {entityId:targetEntityId, propId:targetPropId, linkType:'lookup', lookupDisplayPropId, viaFKPropId};
+  } else if(linkType==='rollup') {
+    const rollupViaFKPropId = document.getElementById('rollupViaFK').value;
+    const rollupFieldPropId = document.getElementById('rollupField').value;
+    const rollupOp = document.querySelector('.rollup-op-btn.selected')?.dataset.op || 'COUNT';
+    if(!rollupViaFKPropId) { showToast('⚠ La table liée doit avoir une FK vers cette entité'); return; }
+    p.link = {entityId:targetEntityId, propId:targetPropId, linkType:'rollup', rollupViaFKPropId, rollupFieldPropId, rollupOp};
+  }
+
   closeLinkModal();
   renderCard(entityId);
   if(currentDataEntity===entityId) renderDataTable(entityId);
@@ -900,145 +1105,149 @@ function removeLink() {
 }
 
 function closeLinkModal() {
-  document.getElementById('linkModal').style.display = 'none';
-  linkingContext = null;
+  document.getElementById('linkModal').style.display='none';
+  linkingContext=null;
 }
 
 // ── EXPORT ──
-function toggleFormat(el) {
-  el.classList.toggle('selected');
-}
-
+function toggleFormat(el) { el.classList.toggle('selected'); }
 function openExport() {
   if(!entities.length) { showToast('Aucune entité à exporter'); return; }
-  document.getElementById('exportModal').style.display = 'flex';
+  document.getElementById('exportModal').style.display='flex';
 }
-function closeExport() { document.getElementById('exportModal').style.display = 'none'; }
+function closeExport() { document.getElementById('exportModal').style.display='none'; }
 
 async function doExport() {
   const fmts = [...document.querySelectorAll('.format-opt.selected')].map(el=>el.dataset.fmt);
   if(!fmts.length) { showToast('Sélectionne au moins un format'); return; }
-
   const zip = new JSZip();
 
   entities.forEach(e => {
-    // Ensure rows padded
-    const rows = e.rows.map(r => {
+    // Build resolved rows (compute lookup/rollup)
+    const resolvedRows = e.rows.map((r,ri) => {
       const out = {};
-      e.props.forEach((p,i) => out[p.name] = r[i]||'');
+      e.props.forEach((p,pi) => {
+        if(p.link?.linkType==='lookup') out[p.name] = computeLookup(e,ri,p);
+        else if(p.link?.linkType==='rollup') out[p.name] = computeRollup(e,ri,p);
+        else if(p.link?.linkType==='ref') {
+          // store human-readable label + raw id
+          const opts = getFKOptions(p.link.entityId);
+          const opt = opts[parseInt(r[pi])];
+          out[p.name] = opt ? opt.label : (r[pi]||'');
+        }
+        else out[p.name] = r[pi]||'';
+      });
       return out;
     });
     const headers = e.props.map(p=>p.name);
+    const fname = slugify(e.name);
 
     fmts.forEach(fmt => {
       const folder = zip.folder(fmt);
-      let content = '';
-      const fname = slugify(e.name);
-
+      const escape = v => `"${String(v).replace(/"/g,'""')}"`;
       if(fmt==='csv') {
-        const escape = v => `"${String(v).replace(/"/g,'""')}"`;
-        content = headers.map(escape).join(',') + '\n';
-        content += rows.map(r=>headers.map(h=>escape(r[h]||'')).join(',')).join('\n');
-        folder.file(`${fname}.csv`, content);
+        let c = headers.map(escape).join(',') + '\n';
+        c += resolvedRows.map(r=>headers.map(h=>escape(r[h]||'')).join(',')).join('\n');
+        folder.file(`${fname}.csv`, c);
       } else if(fmt==='json') {
-        // include schema + data
-        const schema = { entity: e.name, count: e.count, properties: e.props.map(p=>({name:p.name,type:p.type,...(p.link?{link:{entity:entities.find(en=>en.id===p.link.entityId)?.name,property:entities.find(en=>en.id===p.link.entityId)?.props.find(pr=>pr.id===p.link.propId)?.name,type:p.link.linkType}}:{})})) };
-        const out = { schema, data: rows };
-        folder.file(`${fname}.json`, JSON.stringify(out, null, 2));
+        const schema = {entity:e.name,count:e.count,properties:e.props.map(p=>({name:p.name,type:p.type,...(p.link?{link:{type:p.link.linkType,entity:entities.find(en=>en.id===p.link.entityId)?.name}}:{})}) )};
+        folder.file(`${fname}.json`, JSON.stringify({schema, data:resolvedRows},null,2));
       } else if(fmt==='tsv') {
-        content = headers.join('\t') + '\n';
-        content += rows.map(r=>headers.map(h=>String(r[h]||'').replace(/\t/g,' ')).join('\t')).join('\n');
-        folder.file(`${fname}.tsv`, content);
+        let c = headers.join('\t') + '\n';
+        c += resolvedRows.map(r=>headers.map(h=>String(r[h]||'').replace(/\t/g,' ')).join('\t')).join('\n');
+        folder.file(`${fname}.tsv`, c);
       } else if(fmt==='md') {
-        const sep = headers.map(()=>'---').join(' | ');
-        content = '| ' + headers.join(' | ') + ' |\n';
-        content += '| ' + sep + ' |\n';
-        content += rows.map(r=>'| '+headers.map(h=>String(r[h]||'')).join(' | ')+' |').join('\n');
-        folder.file(`${fname}.md`, content);
+        let c = '| '+headers.join(' | ')+' |\n';
+        c += '| '+headers.map(()=>'---').join(' | ')+' |\n';
+        c += resolvedRows.map(r=>'| '+headers.map(h=>String(r[h]||'')).join(' | ')+' |').join('\n');
+        folder.file(`${fname}.md`, c);
       }
     });
   });
 
-  // manifest
-  const manifest = {
+  zip.file('manifest.json', JSON.stringify({
     created: new Date().toISOString(),
     entities: entities.map(e=>({name:e.name,color:e.color,count:e.count,props:e.props.length})),
     formats: fmts
-  };
-  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+  },null,2));
 
   const blob = await zip.generateAsync({type:'blob'});
-  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'entityforge-export.zip';
-  a.click(); URL.revokeObjectURL(url);
-  closeExport();
-  showToast('Package exporté !');
+  a.href = URL.createObjectURL(blob); a.download='entityforge-export.zip';
+  a.click();
+  closeExport(); showToast('Package exporté !');
 }
 
 function slugify(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 
-// ── UI HELPERS ──
+// ── UI ──
 function switchSpace(space) {
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active', (i===0&&space==='model')||(i===1&&space==='data')));
-  document.getElementById('space-model').style.display = space==='model'?'flex':'none';
-  document.getElementById('space-data').style.display = space==='data'?'flex':'none';
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&space==='model')||(i===1&&space==='data')));
+  document.getElementById('space-model').style.display=space==='model'?'flex':'none';
+  document.getElementById('space-data').style.display=space==='data'?'flex':'none';
   if(space==='data') {
     renderDataSidebar();
     if(!currentDataEntity && entities.length) selectDataEntity(entities[0].id);
     else if(currentDataEntity) renderDataTable(currentDataEntity);
-    document.getElementById('emptyData') && (document.getElementById('emptyData').style.display = entities.length?'none':'flex');
   }
 }
 
 function showToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast'; t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(()=>t.remove(), 2200);
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(),2400);
 }
-
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ── DEMO DATA ──
+// ── DEMO ──
 function loadDemo() {
-  const pid1a = uid(), pid1b = uid(), pid1c = uid();
-  const pid2a = uid(), pid2b = uid(), pid2c = uid();
-  const eid1 = uid(), eid2 = uid();
+  const pid1a=uid(),pid1b=uid(),pid1c=uid();
+  const pid2a=uid(),pid2b=uid(),pid2c=uid(),pid2d=uid();
+  const pid3a=uid(),pid3b=uid(),pid3c=uid(),pid3d=uid();
+  const eid1=uid(),eid2=uid(),eid3=uid();
 
   entities = [
-    { id: eid1, name: 'Projets', color: '#c8f060', count: 5,
-      props: [
-        {id: pid1a, name: 'Titre', type: 'text'},
-        {id: pid1b, name: 'Statut', type: 'select'},
-        {id: pid1c, name: 'Date début', type: 'date'},
+    { id:eid1, name:'Clients', color:'#c8f060', count:4,
+      props:[
+        {id:pid1a,name:'Nom',type:'text'},
+        {id:pid1b,name:'Email',type:'email'},
+        {id:pid1c,name:'Nb commandes',type:'number',
+          link:{entityId:eid2,propId:pid2a,linkType:'rollup',
+            rollupViaFKPropId:pid2b,rollupFieldPropId:pid2a,rollupOp:'COUNT'}}
       ],
-      rows: [
-        ['Refonte site web','en cours','2024-01-15'],
-        ['App mobile','planifié','2024-03-01'],
-        ['Migration DB','terminé','2023-11-01'],
-        ['','',''],
-        ['','',''],
-      ]
+      rows:[['Alice','alice@mail.com'],['Bob','bob@mail.com'],['Clara','clara@mail.com'],['David','david@mail.com']]
     },
-    { id: eid2, name: 'Tâches', color: '#7dc8ff', count: 8,
-      props: [
-        {id: pid2a, name: 'Nom', type: 'text'},
-        {id: pid2b, name: 'Projet', type: 'text', link: {entityId: eid1, propId: pid1a, linkType: 'ref'}},
-        {id: pid2c, name: 'Assigné à', type: 'text'},
+    { id:eid2, name:'Commandes', color:'#7dc8ff', count:6,
+      props:[
+        {id:pid2a,name:'Référence',type:'text'},
+        {id:pid2b,name:'Client',type:'text',
+          link:{entityId:eid1,propId:pid1a,linkType:'ref'}},
+        {id:pid2c,name:'Nom client',type:'text',
+          link:{entityId:eid1,propId:pid1a,linkType:'lookup',
+            lookupDisplayPropId:pid1a,viaFKPropId:pid2b}},
+        {id:pid2d,name:'Montant',type:'number'},
       ],
-      rows: Array.from({length:8},()=>['','',''])
+      rows:[['CMD-001','0','','250'],['CMD-002','1','','180'],['CMD-003','0','','420'],['CMD-004','2','','90'],['CMD-005','1','','310'],['CMD-006','0','','150']]
+    },
+    { id:eid3, name:'Produits', color:'#f0a060', count:3,
+      props:[
+        {id:pid3a,name:'Nom',type:'text'},
+        {id:pid3b,name:'Prix',type:'number'},
+        {id:pid3c,name:'Catégorie',type:'select'},
+        {id:pid3d,name:'Stock',type:'number'},
+      ],
+      rows:[['Chaise design','149','mobilier','23'],['Lampe arc','89','luminaire','41'],['Tapis berbère','320','textile','8']]
     }
   ];
-  cardPositions[eid1] = {x: 60, y: 80};
-  cardPositions[eid2] = {x: 390, y: 80};
+  cardPositions[eid1]={x:40,y:60};
+  cardPositions[eid2]={x:360,y:60};
+  cardPositions[eid3]={x:700,y:60};
   renderAll();
-  showToast('Données de démo chargées');
+  showToast('Démo : Clients → Commandes (FK + Lookup + Rollup)');
 }
 
 init();
-// Auto-load demo
 loadDemo();
 </script>
+
 </body>
 </html>
