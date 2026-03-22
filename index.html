@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EntityForge</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11;
+    --surface: #161719;
+    --surface2: #1e2024;
+    --surface3: #26292f;
+    --border: #2e3138;
+    --border2: #3a3f4a;
+    --text: #e8eaf0;
+    --text2: #8b90a0;
+    --text3: #555b6a;
+    --accent: #c8f060;
+    --accent2: #7dc8ff;
+    --accent3: #f0a060;
+    --accent4: #d060f0;
+    --danger: #f06060;
+    --r: 8px;
+    --r2: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Mono', monospace; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* HEADER */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 52px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .logo { font-family: 'Fraunces', serif; font-size: 20px; color: var(--accent); letter-spacing: -0.5px; }
+  .logo span { color: var(--text2); font-weight: 300; font-style: italic; }
+  .tabs { display: flex; gap: 2px; background: var(--bg); border-radius: var(--r); padding: 3px; }
+  .tab {
+    padding: 6px 18px; border-radius: 6px; font-family: 'DM Mono', monospace;
+    font-size: 12px; cursor: pointer; transition: all .15s;
+    color: var(--text2); background: transparent; border: none;
+  }
+  .tab.active { background: var(--surface3); color: var(--text); }
+  .tab:hover:not(.active) { color: var(--text); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .btn {
+    padding: 7px 16px; border-radius: var(--r2); font-family: 'DM Mono', monospace;
+    font-size: 12px; cursor: pointer; border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text2); transition: all .15s;
+  }
+  .btn:hover { background: var(--surface3); color: var(--text); }
+  .btn.primary { background: var(--accent); color: #0e0f11; border-color: var(--accent); font-weight: 500; }
+  .btn.primary:hover { background: #d9ff70; }
+
+  /* MAIN */
+  main { flex: 1; overflow: hidden; display: flex; position: relative; }
+
+  /* ── SPACE 1 : MODEL ── */
+  #space-model { width: 100%; height: 100%; display: flex; position: relative; }
+
+  .model-canvas {
+    flex: 1; position: relative; overflow: hidden;
+    background-image:
+      radial-gradient(circle, var(--border) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .canvas-inner { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+  /* SVG connections */
+  #connections-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+
+  /* ENTITY CARD */
+  .entity-card {
+    position: absolute; width: 260px;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--r); overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,.4);
+    cursor: default; user-select: none;
+    transition: box-shadow .2s;
+    z-index: 10;
+  }
+  .entity-card:hover { box-shadow: 0 8px 40px rgba(0,0,0,.6); }
+  .entity-card.selected { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(125,200,255,.18), 0 8px 40px rgba(0,0,0,.5); }
+
+  .card-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; cursor: grab;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .card-header:active { cursor: grabbing; }
+  .entity-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .card-title {
+    flex: 1; font-size: 13px; font-weight: 500; color: var(--text);
+    background: transparent; border: none; outline: none;
+    font-family: 'DM Mono', monospace;
+  }
+  .card-count-badge {
+    font-size: 10px; color: var(--text3); padding: 2px 6px;
+    background: var(--surface3); border-radius: 3px;
+    cursor: pointer;
+  }
+  .card-count-badge:hover { color: var(--text2); }
+  .card-del { font-size: 12px; color: var(--text3); cursor: pointer; padding: 2px; }
+  .card-del:hover { color: var(--danger); }
+
+  .card-props { padding: 8px 0; min-height: 32px; }
+  .prop-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 12px;
+    transition: background .1s;
+  }
+  .prop-row:hover { background: var(--surface2); }
+  .prop-name {
+    flex: 1; font-size: 11px; color: var(--text2);
+    background: transparent; border: none; outline: none;
+    font-family: 'DM Mono', monospace;
+  }
+  .prop-name:focus { color: var(--text); }
+  .prop-type {
+    font-size: 10px; color: var(--text3);
+    background: var(--surface3); border: none; outline: none;
+    border-radius: 3px; padding: 2px 5px;
+    font-family: 'DM Mono', monospace; cursor: pointer;
+  }
+  .prop-link-btn {
+    font-size: 11px; color: var(--text3); cursor: pointer;
+    padding: 2px 4px; border-radius: 3px;
+    transition: all .1s;
+  }
+  .prop-link-btn:hover { color: var(--accent2); background: rgba(125,200,255,.1); }
+  .prop-link-btn.linked { color: var(--accent3); }
+  .prop-del { font-size: 11px; color: var(--text3); cursor: pointer; opacity: 0; }
+  .prop-row:hover .prop-del { opacity: 1; }
+  .prop-del:hover { color: var(--danger); }
+
+  .card-footer { padding: 6px 12px 8px; border-top: 1px solid var(--border); }
+  .add-prop-btn {
+    font-size: 11px; color: var(--text3); cursor: pointer;
+    display: flex; align-items: center; gap: 4px;
+    transition: color .1s;
+  }
+  .add-prop-btn:hover { color: var(--accent); }
+
+  /* LINK indicator on prop */
+  .prop-link-tag {
+    font-size: 10px; padding: 1px 5px; border-radius: 3px;
+    background: rgba(240,160,96,.15); color: var(--accent3);
+  }
+
+  /* RIGHT PANEL */
+  .model-panel {
+    width: 280px; border-left: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .panel-section { padding: 16px; border-bottom: 1px solid var(--border); }
+  .panel-label { font-size: 10px; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
+  .add-entity-area {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .input {
+    width: 100%; padding: 8px 10px; border-radius: var(--r2);
+    background: var(--bg); border: 1px solid var(--border2);
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px;
+    outline: none; transition: border-color .15s;
+  }
+  .input:focus { border-color: var(--accent2); }
+  .input::placeholder { color: var(--text3); }
+  .color-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .color-dot {
+    width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: transform .1s;
+  }
+  .color-dot:hover { transform: scale(1.2); }
+  .color-dot.selected { border-color: var(--text); }
+  .count-row { display: flex; gap: 8px; align-items: center; }
+  .count-row label { font-size: 11px; color: var(--text2); }
+  .count-input { width: 70px; }
+
+  /* entity list in panel */
+  .entity-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .entity-list-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; cursor: pointer;
+    transition: background .1s;
+  }
+  .entity-list-item:hover { background: var(--surface2); }
+  .entity-list-item.active { background: var(--surface3); }
+  .eli-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .eli-name { font-size: 12px; color: var(--text2); flex: 1; }
+  .eli-count { font-size: 10px; color: var(--text3); }
+
+  /* link panel */
+  .link-panel {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--r); padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12px; color: var(--text2); z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    animation: slideUp .2s ease;
+    display: none;
+  }
+  @keyframes slideUp { from { transform: translateX(-50%) translateY(10px); opacity: 0; } }
+  .link-badge { padding: 3px 8px; border-radius: 3px; font-size: 11px; }
+
+  /* ── SPACE 2 : DATA ── */
+  #space-data { width: 100%; height: 100%; display: flex; display: none; }
+  .data-sidebar {
+    width: 220px; border-right: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0;
+    display: flex; flex-direction: column;
+  }
+  .data-sidebar-header {
+    padding: 16px; border-bottom: 1px solid var(--border);
+    font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em;
+  }
+  .data-entity-list { flex: 1; overflow-y: auto; }
+  .data-entity-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; cursor: pointer;
+    transition: background .1s;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-entity-item:hover { background: var(--surface2); }
+  .data-entity-item.active { background: var(--surface3); }
+  .dei-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dei-info { flex: 1; }
+  .dei-name { font-size: 12px; color: var(--text); }
+  .dei-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .dei-filled { font-size: 10px; color: var(--accent); font-weight: 500; }
+
+  .data-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .data-toolbar {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    background: var(--surface);
+  }
+  .data-title { font-size: 14px; color: var(--text); font-family: 'Fraunces', serif; }
+  .data-subtitle { font-size: 11px; color: var(--text3); }
+  .spacer { flex: 1; }
+  .row-count-tag { font-size: 11px; color: var(--text3); padding: 4px 8px; background: var(--surface3); border-radius: 3px; }
+
+  .table-wrap { flex: 1; overflow: auto; }
+  table { border-collapse: collapse; min-width: 100%; font-size: 12px; }
+  thead { position: sticky; top: 0; z-index: 5; }
+  th {
+    background: var(--surface2); color: var(--text3);
+    padding: 8px 12px; text-align: left; font-weight: 500;
+    border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+    white-space: nowrap; font-size: 11px;
+  }
+  th:first-child { background: var(--surface3); color: var(--text3); width: 44px; text-align: center; }
+  td {
+    padding: 0; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  td:first-child {
+    text-align: center; font-size: 11px; color: var(--text3);
+    background: var(--surface2); padding: 8px 12px; min-width: 44px;
+  }
+  .cell-input {
+    width: 100%; min-width: 120px; padding: 8px 12px;
+    background: transparent; border: none; outline: none;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px;
+    transition: background .1s;
+  }
+  .cell-input:focus { background: rgba(125,200,255,.06); }
+  tr:hover td { background: rgba(255,255,255,.015); }
+  tr:hover td:first-child { background: var(--surface3); }
+
+  .empty-data {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    color: var(--text3); font-size: 13px; flex-direction: column; gap: 8px;
+  }
+  .empty-data .big { font-family: 'Fraunces', serif; font-size: 22px; color: var(--text2); font-style: italic; }
+
+  /* EXPORT MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; display: none;
+  }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--r); width: 400px; padding: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  }
+  .modal h2 { font-family: 'Fraunces', serif; font-size: 20px; margin-bottom: 4px; }
+  .modal p { font-size: 12px; color: var(--text2); margin-bottom: 20px; line-height: 1.6; }
+  .format-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+  .format-opt {
+    padding: 12px; border-radius: var(--r2); border: 1px solid var(--border2);
+    cursor: pointer; transition: all .15s; text-align: center;
+  }
+  .format-opt:hover { border-color: var(--border2); background: var(--surface2); }
+  .format-opt.selected { border-color: var(--accent); background: rgba(200,240,96,.08); }
+  .format-opt .fmt-name { font-size: 14px; font-weight: 500; color: var(--text); }
+  .format-opt .fmt-desc { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* LINK MODAL */
+  .link-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; display: none;
+  }
+  .link-modal .modal { width: 460px; }
+  .link-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .link-row label { font-size: 11px; color: var(--text2); min-width: 80px; }
+  .link-row select {
+    flex: 1; padding: 7px 10px; border-radius: var(--r2);
+    background: var(--bg); border: 1px solid var(--border2);
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px;
+    outline: none;
+  }
+
+  /* Toasts */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--surface3); border: 1px solid var(--border2);
+    padding: 10px 20px; border-radius: 20px; font-size: 12px; color: var(--text);
+    z-index: 2000; animation: toastIn .2s ease;
+    pointer-events: none;
+  }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } }
+
+  /* scrollbars */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  .prop-type-tag {
+    font-size: 10px; padding: 1px 5px; border-radius: 3px;
+    color: var(--text3); background: var(--surface3);
+  }
+  .th-link-badge {
+    font-size: 9px; padding: 1px 4px; border-radius: 2px;
+    background: rgba(240,160,96,.15); color: var(--accent3); margin-left: 4px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Entity<span>Forge</span></div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchSpace('model')">⬡ Modèle</button>
+    <button class="tab" onclick="switchSpace('data')">⊞ Données</button>
+  </div>
+  <div class="header-actions">
+    <button class="btn" onclick="openExport()">↓ Exporter .zip</button>
+  </div>
+</header>
+
+<main>
+  <!-- SPACE 1 : MODEL -->
+  <div id="space-model">
+    <div class="model-canvas" id="canvas">
+      <div class="canvas-inner" id="canvasInner">
+        <svg id="connections-svg"></svg>
+      </div>
+    </div>
+    <div class="model-panel">
+      <div class="panel-section">
+        <div class="panel-label">Nouvelle entité</div>
+        <div class="add-entity-area">
+          <input class="input" id="newEntityName" placeholder="Nom de l'entité…" onkeydown="if(event.key==='Enter')addEntity()">
+          <div class="color-row" id="colorRow"></div>
+          <div class="count-row">
+            <label>Nb. estimé</label>
+            <input class="input count-input" id="newEntityCount" type="number" min="1" placeholder="50">
+          </div>
+          <button class="btn primary" onclick="addEntity()">+ Ajouter</button>
+        </div>
+      </div>
+      <div class="panel-section" style="padding:10px 0 0">
+        <div class="panel-label" style="padding:0 16px 8px">Entités définies</div>
+        <div class="entity-list" id="entityList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPACE 2 : DATA -->
+  <div id="space-data">
+    <div class="data-sidebar">
+      <div class="data-sidebar-header">Entités</div>
+      <div class="data-entity-list" id="dataEntityList"></div>
+    </div>
+    <div class="data-main" id="dataMain">
+      <div class="empty-data" id="emptyData">
+        <div class="big">Aucune entité</div>
+        <div>Crée d'abord des entités dans l'espace Modèle</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- EXPORT MODAL -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal">
+    <h2>Exporter le package</h2>
+    <p>Sélectionne les formats de sortie. Tu obtiendras un .zip avec un fichier par entité, incluant toutes les données saisies.</p>
+    <div class="format-grid">
+      <div class="format-opt selected" data-fmt="csv" onclick="toggleFormat(this)">
+        <div class="fmt-name">.csv</div>
+        <div class="fmt-desc">Universel, léger</div>
+      </div>
+      <div class="format-opt" data-fmt="json" onclick="toggleFormat(this)">
+        <div class="fmt-name">.json</div>
+        <div class="fmt-desc">Structuré, API-ready</div>
+      </div>
+      <div class="format-opt" data-fmt="tsv" onclick="toggleFormat(this)">
+        <div class="fmt-name">.tsv</div>
+        <div class="fmt-desc">Tab-separated</div>
+      </div>
+      <div class="format-opt" data-fmt="md" onclick="toggleFormat(this)">
+        <div class="fmt-name">.md</div>
+        <div class="fmt-desc">Markdown table</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeExport()">Annuler</button>
+      <button class="btn primary" onclick="doExport()">↓ Générer le .zip</button>
+    </div>
+  </div>
+</div>
+
+<!-- LINK MODAL -->
+<div class="link-modal" id="linkModal">
+  <div class="modal">
+    <h2>Lier une propriété</h2>
+    <p>Définis la liaison entre cette propriété et une colonne d'une autre entité.</p>
+    <div class="link-row">
+      <label>Entité cible</label>
+      <select id="linkTargetEntity" onchange="refreshLinkTargetProps()"></select>
+    </div>
+    <div class="link-row">
+      <label>Propriété</label>
+      <select id="linkTargetProp"></select>
+    </div>
+    <div class="link-row">
+      <label>Type</label>
+      <select id="linkType">
+        <option value="ref">Référence (FK)</option>
+        <option value="lookup">Lookup</option>
+        <option value="rollup">Rollup</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeLinkModal()">Annuler</button>
+      <button class="btn" id="removeLinkBtn" onclick="removeLink()" style="color:var(--danger);display:none">Supprimer liaison</button>
+      <button class="btn primary" onclick="saveLink()">Lier</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ── STATE ──
+const COLORS = ['#c8f060','#7dc8ff','#f0a060','#d060f0','#60f0c8','#f06080','#f0e060','#60a0f0'];
+let entities = []; // { id, name, color, count, props: [{id,name,type,link?:{entityId,propId,linkType}}], rows: [[...]] }
+let selectedColor = COLORS[0];
+let currentDataEntity = null;
+let linkingContext = null; // {entityId, propId}
+let dragState = null;
+let cardPositions = {};
+let selectedFormat = ['csv'];
+
+// ── INIT ──
+function init() {
+  renderColorRow();
+  renderAll();
+}
+
+function renderColorRow() {
+  const el = document.getElementById('colorRow');
+  el.innerHTML = COLORS.map(c => `
+    <div class="color-dot ${c===selectedColor?'selected':''}"
+      style="background:${c}"
+      onclick="selectColor('${c}')"></div>
+  `).join('');
+}
+function selectColor(c) { selectedColor = c; renderColorRow(); }
+
+// ── ENTITY CRUD ──
+function uid() { return Math.random().toString(36).slice(2,9); }
+
+function addEntity() {
+  const name = document.getElementById('newEntityName').value.trim() || 'Entité';
+  const count = parseInt(document.getElementById('newEntityCount').value) || 50;
+  const id = uid();
+  const entity = {
+    id, name, color: selectedColor, count,
+    props: [
+      {id: uid(), name: 'Nom', type: 'text'},
+      {id: uid(), name: 'Description', type: 'text'},
+    ],
+    rows: Array.from({length: count}, () => [])
+  };
+  entities.push(entity);
+  // position
+  const existing = Object.keys(cardPositions).length;
+  cardPositions[id] = { x: 40 + (existing % 3) * 290, y: 40 + Math.floor(existing / 3) * 260 };
+  document.getElementById('newEntityName').value = '';
+  document.getElementById('newEntityCount').value = '';
+  renderAll();
+  showToast(`Entité « ${name} » créée (${count} lignes)`);
+}
+
+function deleteEntity(id) {
+  entities = entities.filter(e => e.id !== id);
+  delete cardPositions[id];
+  // clean links pointing to this entity
+  entities.forEach(e => e.props.forEach(p => { if(p.link?.entityId===id) delete p.link; }));
+  if(currentDataEntity===id) currentDataEntity=null;
+  renderAll();
+}
+
+function updateEntityName(id, val) {
+  const e = entities.find(e=>e.id===id);
+  if(e) { e.name = val; renderEntityList(); renderDataSidebar(); }
+}
+
+function updateEntityCount(id) {
+  const e = entities.find(e=>e.id===id);
+  if(!e) return;
+  const input = document.getElementById('count-'+id);
+  const n = parseInt(input?.value) || 50;
+  e.count = n;
+  while(e.rows.length < n) e.rows.push([]);
+  e.rows = e.rows.slice(0, n);
+  if(currentDataEntity===id) renderDataTable(id);
+  renderEntityList();
+  renderDataSidebar();
+  showToast(`${e.name} : ${n} lignes`);
+}
+
+// ── PROPS ──
+function addProp(entityId) {
+  const e = entities.find(e=>e.id===entityId);
+  if(!e) return;
+  e.props.push({id: uid(), name: 'Propriété', type: 'text'});
+  renderCard(entityId);
+  if(currentDataEntity===entityId) renderDataTable(entityId);
+}
+
+function deleteProp(entityId, propId) {
+  const e = entities.find(e=>e.id===entityId);
+  if(!e) return;
+  const pi = e.props.findIndex(p=>p.id===propId);
+  if(pi === -1) return;
+  e.props.splice(pi,1);
+  e.rows.forEach(r => r.splice(pi,1));
+  renderCard(entityId);
+  if(currentDataEntity===entityId) renderDataTable(entityId);
+}
+
+function updatePropName(entityId, propId, val) {
+  const e = entities.find(e=>e.id===entityId);
+  const p = e?.props.find(p=>p.id===propId);
+  if(p) { p.name = val; if(currentDataEntity===entityId) refreshTableHeaders(entityId); }
+}
+
+function updatePropType(entityId, propId, val) {
+  const e = entities.find(e=>e.id===entityId);
+  const p = e?.props.find(p=>p.id===propId);
+  if(p) p.type = val;
+}
+
+// ── RENDER ALL ──
+function renderAll() {
+  renderCards();
+  renderConnections();
+  renderEntityList();
+  renderDataSidebar();
+  if(currentDataEntity) renderDataTable(currentDataEntity);
+}
+
+// ── CARDS ──
+function renderCards() {
+  const inner = document.getElementById('canvasInner');
+  // remove old cards
+  inner.querySelectorAll('.entity-card').forEach(el=>el.remove());
+  entities.forEach(e => {
+    const pos = cardPositions[e.id] || {x:40,y:40};
+    const card = document.createElement('div');
+    card.className = 'entity-card';
+    card.id = 'card-'+e.id;
+    card.style.left = pos.x+'px';
+    card.style.top = pos.y+'px';
+    card.innerHTML = buildCardHTML(e);
+    inner.appendChild(card);
+    setupDrag(card, e.id);
+  });
+}
+
+function buildCardHTML(e) {
+  return `
+  <div class="card-header" data-eid="${e.id}">
+    <div class="entity-dot" style="background:${e.color}"></div>
+    <input class="card-title" value="${esc(e.name)}" onchange="updateEntityName('${e.id}',this.value)" onclick="this.select()">
+    <div class="card-count-badge" onclick="promptCount('${e.id}')" title="Cliquer pour modifier le nombre de lignes">${e.count}</div>
+    <div class="card-del" onclick="deleteEntity('${e.id}')" title="Supprimer">✕</div>
+  </div>
+  <div class="card-props" id="props-${e.id}">
+    ${e.props.map(p => buildPropHTML(e.id, p)).join('')}
+  </div>
+  <div class="card-footer">
+    <div class="add-prop-btn" onclick="addProp('${e.id}')">+ propriété</div>
+  </div>`;
+}
+
+function buildPropHTML(eid, p) {
+  const linked = p.link ? entities.find(e=>e.id===p.link.entityId) : null;
+  const linkedProp = linked ? linked.props.find(pr=>pr.id===p.link.propId) : null;
+  const linkTag = linked ? `<span class="prop-link-tag">→ ${linked.name}</span>` : '';
+  return `
+  <div class="prop-row" id="prow-${p.id}">
+    <input class="prop-name" value="${esc(p.name)}" onchange="updatePropName('${eid}','${p.id}',this.value)" onclick="this.select()">
+    <select class="prop-type" onchange="updatePropType('${eid}','${p.id}',this.value)">
+      ${['text','number','date','boolean','email','url','select'].map(t=>`<option value="${t}" ${p.type===t?'selected':''}>${t}</option>`).join('')}
+    </select>
+    ${linkTag}
+    <span class="prop-link-btn ${p.link?'linked':''}" onclick="openLinkModal('${eid}','${p.id}')" title="Lier à une autre entité">⇌</span>
+    <span class="prop-del" onclick="deleteProp('${eid}','${p.id}')">✕</span>
+  </div>`;
+}
+
+function renderCard(entityId) {
+  const e = entities.find(e=>e.id===entityId);
+  const card = document.getElementById('card-'+entityId);
+  if(!e || !card) return;
+  card.innerHTML = buildCardHTML(e);
+  setupDrag(card, entityId);
+  renderConnections();
+}
+
+function promptCount(id) {
+  const e = entities.find(e=>e.id===id);
+  if(!e) return;
+  const n = prompt(`Nombre de lignes pour « ${e.name } » :`, e.count);
+  if(n===null) return;
+  const num = parseInt(n);
+  if(!isNaN(num) && num>0) {
+    e.count = num;
+    while(e.rows.length<num) e.rows.push([]);
+    e.rows = e.rows.slice(0,num);
+    renderCard(id);
+    renderEntityList();
+    renderDataSidebar();
+    if(currentDataEntity===id) renderDataTable(id);
+    showToast(`${e.name} : ${num} lignes`);
+  }
+}
+
+// ── DRAG ──
+function setupDrag(card, id) {
+  const header = card.querySelector('.card-header');
+  header.addEventListener('mousedown', (e) => {
+    if(e.target.tagName==='INPUT'||e.target.classList.contains('card-del')) return;
+    e.preventDefault();
+    const pos = cardPositions[id];
+    dragState = { id, startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
+  });
+}
+function onDragMove(e) {
+  if(!dragState) return;
+  const dx = e.clientX - dragState.startX;
+  const dy = e.clientY - dragState.startY;
+  const newX = Math.max(0, dragState.origX + dx);
+  const newY = Math.max(0, dragState.origY + dy);
+  cardPositions[dragState.id] = {x: newX, y: newY};
+  const card = document.getElementById('card-'+dragState.id);
+  if(card) { card.style.left = newX+'px'; card.style.top = newY+'px'; }
+  renderConnections();
+}
+function onDragEnd() {
+  dragState = null;
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+}
+
+// ── CONNECTIONS SVG ──
+function renderConnections() {
+  const svg = document.getElementById('connections-svg');
+  const links = [];
+  entities.forEach(e => {
+    e.props.forEach(p => {
+      if(!p.link) return;
+      const target = entities.find(t=>t.id===p.link.entityId);
+      if(!target) return;
+      links.push({ src: e, target, prop: p });
+    });
+  });
+
+  svg.innerHTML = links.map(l => {
+    const sp = cardPositions[l.src.id];
+    const tp = cardPositions[l.target.id];
+    if(!sp||!tp) return '';
+    const x1 = sp.x + 260, y1 = sp.y + 50;
+    const x2 = tp.x, y2 = tp.y + 50;
+    const cx1 = x1 + 60, cx2 = x2 - 60;
+    return `<path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}"
+      stroke="${l.src.color}" stroke-width="1.5" fill="none" opacity="0.5"
+      stroke-dasharray="5,4"/>
+    <circle cx="${x1}" cy="${y1}" r="4" fill="${l.src.color}" opacity="0.7"/>
+    <circle cx="${x2}" cy="${y2}" r="4" fill="${l.target.color}" opacity="0.7"/>`;
+  }).join('');
+}
+
+// ── ENTITY PANEL LIST ──
+function renderEntityList() {
+  const el = document.getElementById('entityList');
+  if(!entities.length) { el.innerHTML = `<div style="padding:12px 16px;font-size:11px;color:var(--text3)">Aucune entité encore</div>`; return; }
+  el.innerHTML = entities.map(e => `
+    <div class="entity-list-item" onclick="focusCard('${e.id}')">
+      <div class="eli-dot" style="background:${e.color}"></div>
+      <div class="eli-name">${esc(e.name)}</div>
+      <div class="eli-count">${e.count}</div>
+    </div>`).join('');
+}
+
+function focusCard(id) {
+  const card = document.getElementById('card-'+id);
+  if(!card) return;
+  card.classList.add('selected');
+  setTimeout(()=>card.classList.remove('selected'), 1200);
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ── DATA SPACE ──
+function renderDataSidebar() {
+  const el = document.getElementById('dataEntityList');
+  if(!entities.length) { el.innerHTML = ''; return; }
+  el.innerHTML = entities.map(e => {
+    const filled = e.rows.filter(r=>r.some(v=>v&&v.trim())).length;
+    return `
+    <div class="data-entity-item ${currentDataEntity===e.id?'active':''}" onclick="selectDataEntity('${e.id}')">
+      <div class="dei-dot" style="background:${e.color}"></div>
+      <div class="dei-info">
+        <div class="dei-name">${esc(e.name)}</div>
+        <div class="dei-sub">${e.count} lignes · ${e.props.length} colonnes</div>
+      </div>
+      ${filled?`<div class="dei-filled">${filled}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function selectDataEntity(id) {
+  currentDataEntity = id;
+  renderDataSidebar();
+  renderDataTable(id);
+}
+
+function renderDataTable(id) {
+  const e = entities.find(e=>e.id===id);
+  const main = document.getElementById('dataMain');
+  if(!e) { main.innerHTML = `<div class="empty-data" id="emptyData"><div class="big">Introuvable</div></div>`; return; }
+
+  // Ensure rows are sized
+  while(e.rows.length < e.count) e.rows.push([]);
+  e.rows = e.rows.slice(0, e.count);
+  e.rows.forEach((r,i) => { while(r.length < e.props.length) r.push(''); });
+
+  const linkBadge = (p) => {
+    if(!p.link) return '';
+    const t = entities.find(t=>t.id===p.link.entityId);
+    return t ? `<span class="th-link-badge">→${t.name}</span>` : '';
+  };
+
+  main.innerHTML = `
+  <div class="data-toolbar">
+    <div>
+      <div class="data-title">${esc(e.name)}</div>
+      <div class="data-subtitle">${e.props.length} colonnes</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="row-count-tag">${e.count} lignes</div>
+    <button class="btn" onclick="addRowTo('${id}')">+ ligne</button>
+  </div>
+  <div class="table-wrap">
+    <table id="table-${id}">
+      <thead>
+        <tr>
+          <th>#</th>
+          ${e.props.map(p=>`<th>${esc(p.name)}${linkBadge(p)}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${e.rows.map((r,ri)=>`
+        <tr>
+          <td>${ri+1}</td>
+          ${e.props.map((p,pi)=>`
+          <td><input class="cell-input" value="${esc(r[pi]||'')}"
+            onchange="setCellValue('${id}',${ri},${pi},this.value)"
+            type="${p.type==='number'?'number':p.type==='date'?'date':'text'}"
+            placeholder="${p.type==='boolean'?'oui/non':''}"></td>`).join('')}
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function refreshTableHeaders(id) {
+  const e = entities.find(e=>e.id===id);
+  const tbl = document.getElementById('table-'+id);
+  if(!e||!tbl) return;
+  const ths = tbl.querySelectorAll('thead th');
+  e.props.forEach((p,i) => {
+    if(ths[i+1]) ths[i+1].textContent = p.name;
+  });
+}
+
+function setCellValue(entityId, ri, pi, val) {
+  const e = entities.find(e=>e.id===entityId);
+  if(e && e.rows[ri]) e.rows[ri][pi] = val;
+  renderDataSidebar();
+}
+
+function addRowTo(id) {
+  const e = entities.find(e=>e.id===id);
+  if(!e) return;
+  e.count++;
+  e.rows.push(Array(e.props.length).fill(''));
+  renderDataTable(id);
+  renderDataSidebar();
+  renderEntityList();
+  renderCard(id);
+}
+
+// ── LINK MODAL ──
+function openLinkModal(eid, pid) {
+  const e = entities.find(e=>e.id===eid);
+  const p = e?.props.find(p=>p.id===pid);
+  if(!e||!p) return;
+  linkingContext = {entityId: eid, propId: pid};
+
+  const otherEntities = entities.filter(en=>en.id!==eid);
+  if(!otherEntities.length) { showToast('Crée au moins 2 entités pour lier'); return; }
+
+  const sel = document.getElementById('linkTargetEntity');
+  sel.innerHTML = otherEntities.map(en=>`<option value="${en.id}" ${p.link?.entityId===en.id?'selected':''}>${esc(en.name)}</option>`).join('');
+  refreshLinkTargetProps();
+
+  // pre-fill
+  if(p.link) {
+    document.getElementById('linkType').value = p.link.linkType||'ref';
+    document.getElementById('removeLinkBtn').style.display = 'inline-block';
+  } else {
+    document.getElementById('removeLinkBtn').style.display = 'none';
+  }
+
+  document.getElementById('linkModal').style.display = 'flex';
+}
+
+function refreshLinkTargetProps() {
+  const eid = document.getElementById('linkTargetEntity').value;
+  const target = entities.find(e=>e.id===eid);
+  const sel = document.getElementById('linkTargetProp');
+  if(!target) { sel.innerHTML = ''; return; }
+  const ctx = linkingContext;
+  const e = entities.find(e=>e.id===ctx?.entityId);
+  const p = e?.props.find(p=>p.id===ctx?.propId);
+  sel.innerHTML = target.props.map(pr=>`<option value="${pr.id}" ${p?.link?.propId===pr.id?'selected':''}>${esc(pr.name)}</option>`).join('');
+}
+
+function saveLink() {
+  if(!linkingContext) return;
+  const {entityId, propId} = linkingContext;
+  const e = entities.find(e=>e.id===entityId);
+  const p = e?.props.find(p=>p.id===propId);
+  if(!p) return;
+  const targetEntityId = document.getElementById('linkTargetEntity').value;
+  const targetPropId = document.getElementById('linkTargetProp').value;
+  const linkType = document.getElementById('linkType').value;
+  p.link = {entityId: targetEntityId, propId: targetPropId, linkType};
+  closeLinkModal();
+  renderCard(entityId);
+  if(currentDataEntity===entityId) renderDataTable(entityId);
+  showToast('Liaison créée');
+}
+
+function removeLink() {
+  if(!linkingContext) return;
+  const {entityId, propId} = linkingContext;
+  const e = entities.find(e=>e.id===entityId);
+  const p = e?.props.find(p=>p.id===propId);
+  if(p) delete p.link;
+  closeLinkModal();
+  renderCard(entityId);
+  if(currentDataEntity===entityId) renderDataTable(entityId);
+  showToast('Liaison supprimée');
+}
+
+function closeLinkModal() {
+  document.getElementById('linkModal').style.display = 'none';
+  linkingContext = null;
+}
+
+// ── EXPORT ──
+function toggleFormat(el) {
+  el.classList.toggle('selected');
+}
+
+function openExport() {
+  if(!entities.length) { showToast('Aucune entité à exporter'); return; }
+  document.getElementById('exportModal').style.display = 'flex';
+}
+function closeExport() { document.getElementById('exportModal').style.display = 'none'; }
+
+async function doExport() {
+  const fmts = [...document.querySelectorAll('.format-opt.selected')].map(el=>el.dataset.fmt);
+  if(!fmts.length) { showToast('Sélectionne au moins un format'); return; }
+
+  const zip = new JSZip();
+
+  entities.forEach(e => {
+    // Ensure rows padded
+    const rows = e.rows.map(r => {
+      const out = {};
+      e.props.forEach((p,i) => out[p.name] = r[i]||'');
+      return out;
+    });
+    const headers = e.props.map(p=>p.name);
+
+    fmts.forEach(fmt => {
+      const folder = zip.folder(fmt);
+      let content = '';
+      const fname = slugify(e.name);
+
+      if(fmt==='csv') {
+        const escape = v => `"${String(v).replace(/"/g,'""')}"`;
+        content = headers.map(escape).join(',') + '\n';
+        content += rows.map(r=>headers.map(h=>escape(r[h]||'')).join(',')).join('\n');
+        folder.file(`${fname}.csv`, content);
+      } else if(fmt==='json') {
+        // include schema + data
+        const schema = { entity: e.name, count: e.count, properties: e.props.map(p=>({name:p.name,type:p.type,...(p.link?{link:{entity:entities.find(en=>en.id===p.link.entityId)?.name,property:entities.find(en=>en.id===p.link.entityId)?.props.find(pr=>pr.id===p.link.propId)?.name,type:p.link.linkType}}:{})})) };
+        const out = { schema, data: rows };
+        folder.file(`${fname}.json`, JSON.stringify(out, null, 2));
+      } else if(fmt==='tsv') {
+        content = headers.join('\t') + '\n';
+        content += rows.map(r=>headers.map(h=>String(r[h]||'').replace(/\t/g,' ')).join('\t')).join('\n');
+        folder.file(`${fname}.tsv`, content);
+      } else if(fmt==='md') {
+        const sep = headers.map(()=>'---').join(' | ');
+        content = '| ' + headers.join(' | ') + ' |\n';
+        content += '| ' + sep + ' |\n';
+        content += rows.map(r=>'| '+headers.map(h=>String(r[h]||'')).join(' | ')+' |').join('\n');
+        folder.file(`${fname}.md`, content);
+      }
+    });
+  });
+
+  // manifest
+  const manifest = {
+    created: new Date().toISOString(),
+    entities: entities.map(e=>({name:e.name,color:e.color,count:e.count,props:e.props.length})),
+    formats: fmts
+  };
+  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+  const blob = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'entityforge-export.zip';
+  a.click(); URL.revokeObjectURL(url);
+  closeExport();
+  showToast('Package exporté !');
+}
+
+function slugify(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+
+// ── UI HELPERS ──
+function switchSpace(space) {
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active', (i===0&&space==='model')||(i===1&&space==='data')));
+  document.getElementById('space-model').style.display = space==='model'?'flex':'none';
+  document.getElementById('space-data').style.display = space==='data'?'flex':'none';
+  if(space==='data') {
+    renderDataSidebar();
+    if(!currentDataEntity && entities.length) selectDataEntity(entities[0].id);
+    else if(currentDataEntity) renderDataTable(currentDataEntity);
+    document.getElementById('emptyData') && (document.getElementById('emptyData').style.display = entities.length?'none':'flex');
+  }
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2200);
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── DEMO DATA ──
+function loadDemo() {
+  const pid1a = uid(), pid1b = uid(), pid1c = uid();
+  const pid2a = uid(), pid2b = uid(), pid2c = uid();
+  const eid1 = uid(), eid2 = uid();
+
+  entities = [
+    { id: eid1, name: 'Projets', color: '#c8f060', count: 5,
+      props: [
+        {id: pid1a, name: 'Titre', type: 'text'},
+        {id: pid1b, name: 'Statut', type: 'select'},
+        {id: pid1c, name: 'Date début', type: 'date'},
+      ],
+      rows: [
+        ['Refonte site web','en cours','2024-01-15'],
+        ['App mobile','planifié','2024-03-01'],
+        ['Migration DB','terminé','2023-11-01'],
+        ['','',''],
+        ['','',''],
+      ]
+    },
+    { id: eid2, name: 'Tâches', color: '#7dc8ff', count: 8,
+      props: [
+        {id: pid2a, name: 'Nom', type: 'text'},
+        {id: pid2b, name: 'Projet', type: 'text', link: {entityId: eid1, propId: pid1a, linkType: 'ref'}},
+        {id: pid2c, name: 'Assigné à', type: 'text'},
+      ],
+      rows: Array.from({length:8},()=>['','',''])
+    }
+  ];
+  cardPositions[eid1] = {x: 60, y: 80};
+  cardPositions[eid2] = {x: 390, y: 80};
+  renderAll();
+  showToast('Données de démo chargées');
+}
+
+init();
+// Auto-load demo
+loadDemo();
+</script>
+</body>
+</html>
